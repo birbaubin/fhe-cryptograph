@@ -41,8 +41,12 @@ void generateCryptoContextAndKeys(SecurityLevel securityLevel,
                                   KeyPair<DCRTPoly>* kp1,
                                   KeyPair<DCRTPoly>* kp2);
 
-Ciphertext<DCRTPoly> evalRotateAndSumCIphertext(Ciphertext<DCRTPoly> ciphertext,
-                                                CryptoContext<DCRTPoly> cc);
+void generateCKKSContextAndKeys(SecurityLevel securityLevel,
+                                usint batchSize,
+                                int multiplicativeDepth,
+                                CryptoContext<DCRTPoly>* cc,
+                                KeyPair<DCRTPoly>* kp1,
+                                KeyPair<DCRTPoly>* kp2);
 
 
 Ciphertext<DCRTPoly> evalOr(Ciphertext<DCRTPoly> ciphertext1,

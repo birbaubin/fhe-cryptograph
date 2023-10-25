@@ -34,16 +34,26 @@ endif ()
 
 set( CMAKE_CXX_FLAGS ${OpenFHE_CXX_FLAGS} )
 
+find_package(OpenSSL REQUIRED)
+if (OpenFHE_FOUND)
+    message(STATUS "FOUND PACKAGE OpenSSL")
+    message(STATUS "OpenSSL include files location: ${OPENSSL_INCLUDE_DIR}")
+endif()
+
+include_directories(${OPENSSL_INCLUDE_DIR})
 include_directories( ${OPENMP_INCLUDES} )
 include_directories( ${OpenFHE_INCLUDE} )
 include_directories( ${OpenFHE_INCLUDE}/third-party/include )
 include_directories( ${OpenFHE_INCLUDE}/core )
 include_directories( ${OpenFHE_INCLUDE}/pke )
 include_directories( ${OpenFHE_INCLUDE}/binfhe )
+
 ### add directories for other OpenFHE modules as needed for your project
 
 link_directories( ${OpenFHE_LIBDIR} )
 link_directories( ${OPENMP_LIBRARIES} )
+
+
 if(BUILD_STATIC)
     set( CMAKE_EXE_LINKER_FLAGS "${OpenFHE_EXE_LINKER_FLAGS} -static")
     link_libraries( ${OpenFHE_STATIC_LIBRARIES} )
@@ -51,6 +61,10 @@ else()
     set( CMAKE_EXE_LINKER_FLAGS ${OpenFHE_EXE_LINKER_FLAGS} )
     link_libraries( ${OpenFHE_SHARED_LIBRARIES} )
 endif()
+
+
+add_compile_options(-Wno-deprecated-declarations)
+
 
 ### ADD YOUR EXECUTABLE(s) HERE
 ### add_executable( EXECUTABLE-NAME SOURCES )
@@ -60,4 +74,13 @@ endif()
 add_executable(main src/exact_cryptograph_packed.cpp src/util.cpp
         src/resource_allocation.cpp
         src/main.cpp
-        src/headers.h)
+        src/headers.h
+        src/BloomFilter.cpp
+        src/BloomFilter.h)
+
+if(OPENSSL_FOUND)
+    include_directories(${OPENSSL_INCLUDE_DIR})
+    target_link_libraries(main PRIVATE ${OPENSSL_LIBRARIES})
+else()
+    message(FATAL_ERROR "OpenSSL not found")
+endif()

@@ -5,161 +5,118 @@
 
 #include <iostream>
 #include <sys/time.h>
-#include "openfhe.h"
 #include "util.h"
+#include "headers.h"
 
 //TODO: implement resource allocation metric
 
-void ressourceAllocation()
+void CryptoGraph::ressourceAllocation(std::vector<std::vector<int64_t>> graph1,
+                         std::vector<std::vector<int64_t>> graph2,
+                         std::vector<UndirectedEdge> evaluated_edges)
 {
-    double totalTime = 0;
-    usint batchSize = 1 << 11; // 2^11 = 2048
-    PlaintextModulus plaintextModulus = (1 << 16) +1; // 2^16 + 1 = 65537
-    usint ringDim = 1 << 15; // 2^15 = 32768
-    usint maxNumberOfBatches = ringDim / batchSize;
-    usint currentNumberOfBatches=0;
 
+    double totalTime = 0;
+    usint batchSize = 1 << 8; // 2^11 = 2048
     CryptoContext<DCRTPoly> cc;
     KeyPair<DCRTPoly> kp1;
     KeyPair<DCRTPoly> kp2;
+    std::vector<Ciphertext<DCRTPoly>> fused_graph;
+    std::vector<Ciphertext<DCRTPoly>> degrees;
 
-    generateCryptoContextAndKeys(SecurityLevel::HEStd_128_classic,
-                                 batchSize,
-                                 plaintextModulus,
-                                 3,
-                                 ringDim,
-                                 &cc,
-                                 &kp1,
-                                 &kp2);
 
-//    int currentNumberOfNodes = 0;
-    std::vector<int64_t> neighbors_nodex_graph1;
-    std::vector<int64_t> neighbors_nodey_graph1;
-    std::vector<int64_t> neighbors_nodex_graph2;
-    std::vector<int64_t> neighbors_nodey_graph2;
+    generateCKKSContextAndKeys(SecurityLevel::HEStd_128_classic,
+                               batchSize,
+                               9,
+                               &cc,
+                               &kp1,
+                               &kp2);
 
-    std::vector<std::array<int64_t, 2> > batchEdges;
     timeval t_start, t_end;
     gettimeofday(&t_start, NULL);
 
-    for (int i=0; i<evaluated_edges.size(); i++)
+    for (int i=0; i<graph1.size(); i++)
     {
-        if((currentNumberOfBatches < maxNumberOfBatches) & (i < evaluated_edges.size()-1))
-        {
 
-            int64_t nodex = evaluated_edges.at(i).vertices[0];
-            int64_t nodey = evaluated_edges.at(i).vertices[1];
+        std::cout << "Computing node " << i << std::endl;
+        std::vector<std::complex<double>> neighbors_nodex_graph1(graph1.at(i).begin(), graph1.at(i).end());
+        std::vector<std::complex<double>> neighbors_nodex_graph2(graph2.at(i).begin(), graph2.at(i).end());
 
-            std::cout << "Adding edge " << nodex << " -- " << nodey << " to batch" << std::endl;
-            neighbors_nodex_graph1.insert(neighbors_nodex_graph1.end(), graph1.at(nodex).begin(), graph1.at(nodex).end());
-            neighbors_nodey_graph1.insert(neighbors_nodey_graph1.end(), graph1.at(nodey).begin(), graph1.at(nodey).end());
-            neighbors_nodex_graph2.insert(neighbors_nodex_graph2.end(), graph2.at(nodex).begin(), graph2.at(nodex).end());
-            neighbors_nodey_graph2.insert(neighbors_nodey_graph2.end(), graph2.at(nodey).begin(), graph2.at(nodey).end());
+        Plaintext plaintext_nodex_graph1 = cc->MakeCKKSPackedPlaintext(neighbors_nodex_graph1);
+        Plaintext plaintext_nodex_graph2 = cc->MakeCKKSPackedPlaintext(neighbors_nodex_graph2);
 
-            batchEdges.push_back({nodex, nodey});
+        Ciphertext<DCRTPoly> ciphertext_nodex_graph1;
+        Ciphertext<DCRTPoly> ciphertext_nodex_graph2;
 
-            for(int j = 0; j < (batchSize - graph1.size()); j++)
-            {
-                neighbors_nodex_graph1.push_back(0);
-                neighbors_nodey_graph1.push_back(0);
-                neighbors_nodex_graph2.push_back(0);
-                neighbors_nodey_graph2.push_back(0);
-            }
+        ciphertext_nodex_graph1 = cc->Encrypt(kp2.publicKey, plaintext_nodex_graph1);
+        ciphertext_nodex_graph2 = cc->Encrypt(kp2.publicKey, plaintext_nodex_graph2);
 
-            currentNumberOfBatches++;
-        }
-        else
-        {
-            std::cout << "Batch is full, evaluating batch" << std::endl;
+        Ciphertext<DCRTPoly> ciphertext_nodex = evalOr(ciphertext_nodex_graph1, ciphertext_nodex_graph2, cc);
 
-            Plaintext plaintext_nodex_graph1 = cc->MakePackedPlaintext(neighbors_nodex_graph1);
-            Plaintext plaintext_nodex_graph2 = cc->MakePackedPlaintext(neighbors_nodex_graph2);
-            Plaintext plaintext_nodey_graph1 = cc->MakePackedPlaintext(neighbors_nodey_graph1);
-            Plaintext plaintext_nodey_graph2 = cc->MakePackedPlaintext(neighbors_nodey_graph2);
+        fused_graph.push_back(ciphertext_nodex);
 
-            ////////////////////////////////////////////////////////////
-            // Encryption
-            ////////////////////////////////////////////////////////////
+        Ciphertext<DCRTPoly> degree_nodex = cc->EvalSum(ciphertext_nodex, batchSize);
 
-            Ciphertext<DCRTPoly> ciphertext_nodex_graph1;
-            Ciphertext<DCRTPoly> ciphertext_nodex_graph2;
-            Ciphertext<DCRTPoly> ciphertext_nodey_graph1;
-            Ciphertext<DCRTPoly> ciphertext_nodey_graph2;
+        std::vector<std::complex<double>> mask(graph1.size(), 0);
+        mask.at(i) = 1;
 
-            ciphertext_nodex_graph1 = cc->Encrypt(kp2.publicKey, plaintext_nodex_graph1);
-            ciphertext_nodex_graph2 = cc->Encrypt(kp2.publicKey, plaintext_nodex_graph2);
-            ciphertext_nodey_graph1 = cc->Encrypt(kp2.publicKey, plaintext_nodey_graph1);
-            ciphertext_nodey_graph2 = cc->Encrypt(kp2.publicKey, plaintext_nodey_graph2);
+        Plaintext plaintext_mask = cc->MakeCKKSPackedPlaintext(mask);
+        Ciphertext<DCRTPoly> masked_degree_nodex = cc->EvalMult(degree_nodex, plaintext_mask);
+        degrees.push_back(masked_degree_nodex);
+    }
 
-            ////////////////////////////////////////////////////////////
-            // Homomorphic Operations
-            ////////////////////////////////////////////////////////////
+    gettimeofday(&t_end, NULL);
+    totalTime += getMillies(t_start, t_end);
+    Ciphertext<DCRTPoly> degree_result = cc->EvalAddMany(degrees);
+    std::cout << "Precomputation of fusion graph finished in " <<
+    totalTime << " ms" << std::endl;
 
-            Ciphertext<DCRTPoly> ciphertext_nodex = evalOr(ciphertext_nodex_graph1, ciphertext_nodex_graph2, cc);
-            Ciphertext<DCRTPoly> ciphertext_nodey = evalOr(ciphertext_nodey_graph1, ciphertext_nodey_graph2, cc);
+    gettimeofday(&t_start, NULL);
+    Plaintext plaintextResult;
 
-            Ciphertext<DCRTPoly> ciphertext_common_neighbors  = cc->EvalMult(ciphertext_nodex, ciphertext_nodey);
+    double a = 1;
+    double b = 50;
+    int degree = 15;
 
-            Ciphertext<DCRTPoly> ciphertextEvalSum = cc->EvalSum(ciphertext_common_neighbors, batchSize);
+    std::function<double(double)> metric_function;
+    std::string metric = "resource_allocation";
+    if(metric == "resource_allocation"){
+        std::cout << "Using resource allocation metric" << std::endl;
+        metric_function = [](double x) -> double { return 1/x; };
+    }
+    else if(metric == "adamic_adar"){
+        metric_function = [](double x) -> double { return 1/log(x); };
+    }
+
+    Ciphertext<DCRTPoly> one_over_degree = cc->EvalChebyshevFunction(metric_function, degree_result, a, b, degree);
 
 
-            ////////////////////////////////////////////////////////////
-            // Decryption
-            ////////////////////////////////////////////////////////////
 
-            Plaintext plaintextResult;
-            decrypt(ciphertextEvalSum, cc, kp1, kp2, &plaintextResult);
-            plaintextResult->SetLength(plaintext_nodex_graph1->GetLength());
+    for(int i = 0; i < evaluated_edges.size(); i++)
+    {
+        Ciphertext<DCRTPoly> ciphertext_nodex = fused_graph.at(evaluated_edges.at(i).vertices[0]);
 
+        Ciphertext<DCRTPoly> ciphertext_nodey = fused_graph.at(evaluated_edges.at(i).vertices[1]);
 
-            for(int k = 0; k < batchEdges.size(); k++)
-            {
-                std::cout << "Common neighbors for edge " << batchEdges.at(k).at(0)
-                          << " -- " << batchEdges.at(k).at(1) << " : "
-                          << plaintextResult->GetPackedValue()[k*batchSize] << std::endl;
-            }
+//        std::cout << "About to compute first multiplication" << std::endl;
+        Ciphertext<DCRTPoly> ciphertext_common_neighbors = cc->EvalMult(ciphertext_nodex, ciphertext_nodey);
 
-            neighbors_nodex_graph1.clear();
-            neighbors_nodey_graph1.clear();
-            neighbors_nodex_graph2.clear();
-            neighbors_nodey_graph2.clear();
-            batchEdges.clear();
+//        std::cout << "About to compute second multiplication" << std::endl;
+        Ciphertext<DCRTPoly> selected_neighbor_metrics = cc->EvalMult(ciphertext_common_neighbors, one_over_degree);
+//        std::cout << "About to compute sum" << std::endl;
+        selected_neighbor_metrics = cc->EvalSum(selected_neighbor_metrics, batchSize);
+        decrypt(selected_neighbor_metrics, cc, kp1, kp2, &plaintextResult);
+        auto result = plaintextResult->GetCKKSPackedValue()[0];
+        std::cout << "Link " << evaluated_edges.at(i).vertices[0] << "--" << evaluated_edges.at(i).vertices[1] << " : " << result.real() << std::endl;
 
-            if(i == evaluated_edges.size()-1)
-            {
-                break;
-            }
-
-
-            int64_t nodex = evaluated_edges.at(i).vertices[0];
-            int64_t nodey = evaluated_edges.at(i).vertices[1];
-
-            std::cout << "Adding edge " << nodex << " -- " << nodey << " to batch" << std::endl;
-
-            neighbors_nodex_graph1.insert(neighbors_nodex_graph1.end(), graph1.at(nodex).begin(), graph1.at(nodex).end());
-            neighbors_nodey_graph1.insert(neighbors_nodey_graph1.end(), graph1.at(nodey).begin(), graph1.at(nodey).end());
-            neighbors_nodex_graph2.insert(neighbors_nodex_graph2.end(), graph2.at(nodex).begin(), graph2.at(nodex).end());
-            neighbors_nodey_graph2.insert(neighbors_nodey_graph2.end(), graph2.at(nodey).begin(), graph2.at(nodey).end());
-
-            for(int j = 0; j < (batchSize - graph1.size()); j++)
-            {
-                neighbors_nodex_graph1.push_back(0);
-                neighbors_nodey_graph1.push_back(0);
-                neighbors_nodex_graph2.push_back(0);
-                neighbors_nodey_graph2.push_back(0);
-            }
-
-            batchEdges.push_back({nodex, nodey});
-            currentNumberOfBatches = 1;
-
-        }
     }
 
 
     gettimeofday(&t_end, NULL);
-
-    totalTime += getMillies(t_start, t_end);
-    std::cout << "Average time over " << evaluated_edges.size() << " predictions : "
-              << totalTime / evaluated_edges.size() << " ms" << std::endl;
+    totalTime = getMillies(t_start, t_end);
+    std::cout << "Total time for metric computation : " << totalTime << " ms" << std::endl;
+    std::cout << "Average time for metric computation : " << totalTime/evaluated_edges.size() << " ms" << std::endl;
 
 }
+
+
+
