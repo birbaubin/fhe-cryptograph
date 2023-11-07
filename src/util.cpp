@@ -3,7 +3,7 @@
 
 using namespace lbcrypto;
 
-std::vector<std::vector<int64_t>> load_graph(std::string filename, size_t dataset_size)
+std::vector<std::vector<int64_t>> loadGraphAsAdjacencyMatrix(std::string filename, size_t dataset_size)
 
 
 {
@@ -42,7 +42,41 @@ std::vector<std::vector<int64_t>> load_graph(std::string filename, size_t datase
 
 }
 
-std::vector<UndirectedEdge> generate_complete_graph(std::vector<uint32_t> nodes)
+std::vector<std::vector<int64_t>> loadGraphAsAdjacencyLists(std::string filename, size_t dataset_size) {
+
+    std::vector<std::vector<int64_t>> matrix(dataset_size, std::vector<int64_t>(0));
+    std::ifstream infile(filename.c_str());
+
+    if (!infile.good()) {
+        std::cerr << "Input file " << filename << " does not exist, program exiting!" << std::endl;
+        exit(0);
+    }
+
+    std::string line;
+
+    infile.clear();
+    std::string source, target;
+
+    while (getline(infile, line)) {
+        std::stringstream str(line);
+        std::getline(str, source, ',');
+        std::getline(str, target, ',');
+
+        uint32_t int_source = stol(source);
+        uint32_t int_target = stol(target);
+
+        matrix[int_target].push_back(int_source);
+        matrix[int_source].push_back(int_target);
+
+    }
+
+    return matrix;
+
+
+}
+
+
+std::vector<UndirectedEdge> generateCompleteGraph(std::vector<uint32_t> nodes)
 {
 
     std::vector<UndirectedEdge> graph;
@@ -56,11 +90,11 @@ std::vector<UndirectedEdge> generate_complete_graph(std::vector<uint32_t> nodes)
             edge.vertices[1] = nodes.at(j);
             graph.push_back(edge);
        }
-       
+
     }
 
     return graph;
-    
+
 }
 
 void generateCryptoContextAndKeys(SecurityLevel securityLevel,
@@ -154,6 +188,7 @@ void generateCKKSContextAndKeys(SecurityLevel securityLevel,
     parameters.SetMultiplicativeDepth(multiplicativeDepth);
     parameters.SetScalingModSize(50);
     parameters.SetFirstModSize(60);
+//    parameters.SetRingDim(1 << 15);
 //    parameters.SetBatchSize(batchSize);
 
     (*cc) = GenCryptoContext(parameters);

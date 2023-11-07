@@ -18,19 +18,25 @@
 class BloomFilter {
 
 private:
-    std::vector<int> bloomFilter;
+    std::vector<int64_t> bloomFilter;
     int size;
-    int expectedInsertions;
+    int64_t expectedInsertions;
+    float probabilityOfFalsePositives;
 
 
 public:
-        BloomFilter(int expectedInsertions);
-        void add(int element);
-        bool contains(int element);
+        BloomFilter(int64_t expectedInsertions, float probabilityOfFalsePositives);
+        void add(int64_t element);
+        void addMultiple(std::vector<int64_t> elements);
+        bool contains(int64_t element);
         void print();
-        std::vector<int> getContents();
-        int sha256(int element);
-        int sha384(int element);
+        std::vector<int64_t> getContents();
+        int sha256(int64_t element);
+        int sha384(int64_t element);
+        int getSize();
+        void clear();
+
+
 
 
 };

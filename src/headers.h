@@ -9,6 +9,10 @@
 #include <sys/time.h>
 #include "util.h"
 #include "BloomFilter.h"
+#include "Graph.h"
+#include "flags.h"
+
+
 
 
 using namespace std;
@@ -16,17 +20,18 @@ using namespace std;
 class CryptoGraph{
 
 public:
-    void exactCryptograph(std::vector<std::vector<int64_t>> graph1,
-                          std::vector<std::vector<int64_t>> graph2,
-                          std::vector<UndirectedEdge> evaluated_edges);
+    static void exactCryptograph(std::vector<std::vector<int64_t>> graph1,
+                                 std::vector<std::vector<int64_t>> graph2,
+                                 std::vector<UndirectedEdge> evaluated_edges);
 
     void ressourceAllocation(std::vector<std::vector<int64_t>> graph1,
                              std::vector<std::vector<int64_t>> graph2,
                              std::vector<UndirectedEdge> evaluated_edges);
 
-    void exactCryptographWithBloom(std::vector<std::vector<int64_t>> graph1,
-                                   std::vector<std::vector<int64_t>> graph2,
-                                   std::vector<UndirectedEdge> evaluated_edges);
+    static void CommonNeighborsWithBloom(Graph graph1,
+                                   Graph graph2,
+                                   std::vector<UndirectedEdge> evaluated_edges,
+                                   string datasetName);
 
 };
 

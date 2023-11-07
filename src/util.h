@@ -21,9 +21,11 @@ typedef struct UndirectedEdge
 
 UndirectedEdge;
 
-std::vector<std::vector<int64_t>> load_graph(std::string filename, size_t dataset_size);
+std::vector<std::vector<int64_t>> loadGraphAsAdjacencyMatrix(std::string filename, size_t dataset_size);
 
-std::vector<UndirectedEdge> generate_complete_graph(std::vector<uint32_t> nodes);
+std::vector<std::vector<int64_t>> loadGraphAsAdjacencyLists(std::string filename, size_t dataset_size);
+
+    std::vector<UndirectedEdge> generateCompleteGraph(std::vector<uint32_t> nodes);
 
 bool decrypt(Ciphertext<DCRTPoly> ciphertext,
              CryptoContext<DCRTPoly> cc,

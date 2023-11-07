@@ -71,12 +71,14 @@ add_compile_options(-Wno-deprecated-declarations)
 ###
 ### EXAMPLE:
 #add_executable(demo exact_cryptograph_packed.cpp util.cpp exact_cryptograph_packed.cpp)
-add_executable(main src/exact_cryptograph_packed.cpp src/util.cpp
-        src/resource_allocation.cpp
+add_executable(main src/CommonNeighbors.cpp src/util.cpp
         src/main.cpp
         src/headers.h
         src/BloomFilter.cpp
-        src/BloomFilter.h)
+        src/BloomFilter.h
+        src/Graph.cpp
+        src/Graph.h
+        src/helpers.h)
 
 if(OPENSSL_FOUND)
     include_directories(${OPENSSL_INCLUDE_DIR})
