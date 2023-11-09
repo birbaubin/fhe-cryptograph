@@ -78,7 +78,8 @@ add_executable(main src/CommonNeighbors.cpp src/util.cpp
         src/BloomFilter.h
         src/Graph.cpp
         src/Graph.h
-        src/helpers.h)
+        src/helpers.h
+        src/ResourceAllocation.cpp)
 
 if(OPENSSL_FOUND)
     include_directories(${OPENSSL_INCLUDE_DIR})

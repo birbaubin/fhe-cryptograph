@@ -7,7 +7,6 @@ std::vector<std::vector<int64_t>> loadGraphAsAdjacencyMatrix(std::string filenam
 
 
 {
-
     std::vector<std::vector<int64_t>> matrix(dataset_size, std::vector<int64_t>(dataset_size, 0));
     std::ifstream infile(filename.c_str());
 
@@ -17,7 +16,6 @@ std::vector<std::vector<int64_t>> loadGraphAsAdjacencyMatrix(std::string filenam
     }
 
     std::string line;
-
 
     infile.clear();
     infile.seekg(std::ios::beg);
@@ -188,8 +186,8 @@ void generateCKKSContextAndKeys(SecurityLevel securityLevel,
     parameters.SetMultiplicativeDepth(multiplicativeDepth);
     parameters.SetScalingModSize(50);
     parameters.SetFirstModSize(60);
-//    parameters.SetRingDim(1 << 15);
-//    parameters.SetBatchSize(batchSize);
+    parameters.SetRingDim(1 << 15);
+    parameters.SetBatchSize(batchSize);
 
     (*cc) = GenCryptoContext(parameters);
 
